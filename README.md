@@ -68,19 +68,6 @@ python utterances.py conversations-gone-awry-corpus data/utterances-conversation
 
 Create a fine-tuning dataset (for training and detecting aggression detection). Send over the training and validation sets to OpenAI for fine-tuning.
 
-For our training, we used the following hyperparameters:
-
-- Base model: gpt-4o-mini-2024-07-18
-- Epochs: 1
-- Batch size: 16
-- LR multiplier: 1.8
-- Seed: 2054542473
-
-Training data is shown below:
-
-- Trained tokens: 3088540
-- Training loss: 0.0000
-
 ```console
 cat data/utterances-conversations-gone-awry.jsonl | shuf > data/utterances-conversations-gone-awry-shuffled.jsonl
 cat data/utterances-conversations-gone-awry-shuffled.jsonl | head -n 24017 > data/utterances-conversations-gone-awry-training.jsonl
