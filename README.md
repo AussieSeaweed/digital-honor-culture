@@ -1,5 +1,35 @@
 # Digital Honour Culture
 
+Extract utterances from relevant subreddits (for detecting aggressions and validating performance).
+
+```console
+python utterances.py subreddit-changemyview data/utterances-change-my-view.jsonl
+python utterances.py conversations-gone-awry-corpus data/utterances-conversations-gone-awry.jsonl
+```
+
+Create a fine-tuning dataset (for training and detecting aggression detection). Send over the training and validation sets to OpenAI for fine-tuning.
+
+```console
+cat data/utterances-conversations-gone-awry.jsonl | shuf > data/utterances-conversations-gone-awry-shuffled.jsonl
+cat data/utterances-conversations-gone-awry-shuffled.jsonl | head -n 24017 > data/utterances-conversations-gone-awry-training.jsonl
+cat data/utterances-conversations-gone-awry-shuffled.jsonl | tail -n +24018 > data/utterances-conversations-gone-awry-validation.jsonl
+python fine-tune.py data/utterances-conversations-gone-awry-training.jsonl data/fine-tune-conversations-gone-awry-training.jsonl
+python fine-tune.py data/utterances-conversations-gone-awry-validation.jsonl data/fine-tune-conversations-gone-awry-validation.jsonl
+```
+
+Evaluate the validation set and determine the values in the confusion matrix.
+
+```console
+python classify.py data/utterances-conversations-gone-awry-validation.jsonl data/classifications-conversations-gone-awry-validation.jsonl [OpenAI-model] [max-workers]
+python confusion.py data/utterances-conversations-gone-awry-validation.jsonl data/classifications-conversations-gone-awry-validation.jsonl data/confusion-conversations-gone-awry-validation.jsonl
+```
+
+Classify personal attacks.
+
+```console
+python classify.py data/utterances-change-my-view.jsonl data/classifications-change-my-view.jsonl [OpenAI-model] [max-workers]
+```
+
 Extract speakers from relevant subreddits (for detecting aggressions and US states).
 
 ```console
@@ -59,30 +89,6 @@ python speakers.py subreddit-wyoming data/speakers-wyoming.jsonl
 python speakers.py subreddit-Appalachia data/speakers-appalachia.jsonl
 ```
 
-Extract utterances from relevant subreddits (for detecting aggressions and validating performance).
-
-```console
-python utterances.py subreddit-changemyview data/utterances-change-my-view.jsonl
-python utterances.py conversations-gone-awry-corpus data/utterances-conversations-gone-awry.jsonl
-```
-
-Create a fine-tuning dataset (for training and detecting aggression detection). Send over the training and validation sets to OpenAI for fine-tuning.
-
-```console
-cat data/utterances-conversations-gone-awry.jsonl | shuf > data/utterances-conversations-gone-awry-shuffled.jsonl
-cat data/utterances-conversations-gone-awry-shuffled.jsonl | head -n 24017 > data/utterances-conversations-gone-awry-training.jsonl
-cat data/utterances-conversations-gone-awry-shuffled.jsonl | tail -n +24018 > data/utterances-conversations-gone-awry-validation.jsonl
-python fine-tune.py data/utterances-conversations-gone-awry-training.jsonl data/fine-tune-conversations-gone-awry-training.jsonl
-python fine-tune.py data/utterances-conversations-gone-awry-validation.jsonl data/fine-tune-conversations-gone-awry-validation.jsonl
-```
-
-Evaluate the validation set and determine the values in the confusion matrix.
-
-```console
-python classify.py data/utterances-conversations-gone-awry-validation.jsonl data/classifications-conversations-gone-awry-validation.jsonl [OpenAI-model] [max-workers]
-python confusion.py data/utterances-conversations-gone-awry-validation.jsonl data/classifications-conversations-gone-awry-validation.jsonl data/confusion-conversations-gone-awry-validation.jsonl
-```
-
 Collect state membership information and get statistics.
 
 ```console
@@ -139,16 +145,16 @@ wyoming data/speakers-wyoming.jsonl
 appalachia data/speakers-appalachia.jsonl' | python us-states.py data/speakers-change-my-view.jsonl data/us-states-change-my-view.jsonl data/us-states-change-my-view-statistics.jsonl
 ```
 
-Classify personal attacks.
+Get Twitter location data.
 
 ```console
-python classify.py data/utterances-change-my-view.jsonl data/classifications-change-my-view.jsonl [OpenAI-model] [max-workers]
+python twitter.py data/us-states-change-my-view.jsonl data/speakers-twitter.csv data/twitter-change-my-view.jsonl
 ```
 
 Fetch metrics: aggression, response, and retaliation rates.
 
 ```console
-python metrics.py data/classifications-change-my-view.jsonl data/us-states-change-my-view.jsonl data/metrics-change-my-view.jsonl
+python metrics.py data/classifications-change-my-view.jsonl data/twitter-change-my-view.jsonl data/metrics-change-my-view.jsonl
 ```
 
 Aggregate metrics.

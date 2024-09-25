@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from itertools import filterfalse
-from math import isnan
+from math import isnan, nan
 from statistics import fmean
 
 from jsonlines import open
@@ -34,7 +34,7 @@ def parse_args():
 def safemean(values):
     values = list(filterfalse(isnan, values))
 
-    return {'rate': fmean(values), 'count': len(values)}
+    return {'rate': (fmean(values) if values else nan), 'count': len(values)}
 
 
 def main():
