@@ -1,13 +1,13 @@
 from argparse import ArgumentParser
-from collections import defaultdict
 from datetime import datetime
-from functools import partial
 from itertools import filterfalse
 from math import isnan, nan
+from pprint import pformat
 from statistics import fmean
 
 from jsonlines import open
-from tqdm import tqdm
+
+RATE_KEYS = 'aggression', 'response', 'retaliation'
 
 
 def parse_args():
@@ -17,16 +17,7 @@ def parse_args():
         epilog=f'Copyright (c) {datetime.now().year} - Juho Kim',
     )
 
-    parser.add_argument(
-        'metrics',
-        help='File of speakers (with metrics)',
-        type=str,
-    )
-    parser.add_argument(
-        'aggregates',
-        help='File of aggregated data',
-        type=str,
-    )
+    parser.add_argument('speakers', help='File of speakers', type=str)
 
     return parser.parse_args()
 
@@ -37,41 +28,114 @@ def safemean(values):
     return {'rate': (fmean(values) if values else nan), 'count': len(values)}
 
 
+def rates_of(speakers, key):
+    rates = []
+
+    for speaker in speakers:
+        rates.append(speaker['metrics']['rates'][key])
+
+    return rates
+
+
+def aggregate(speakers):
+    return {key: safemean(rates_of(speakers, key)) for key in RATE_KEYS}
+
+
+def separate_by_region(speakers):
+    northerners = []
+    southerners = []
+
+    for speaker in speakers:
+        match speaker['region']:
+            case 'NORTH':
+                northerners.append(speaker)
+            case 'SOUTH':
+                southerners.append(speaker)
+            case _:
+                pass
+
+    return northerners, southerners
+
+
+def separate(speakers, key_function):
+    truthies = []
+    falsies = []
+
+    for speaker in speakers:
+        key = key_function(speaker)
+
+        if key is True:
+            truthies.append(speaker)
+        elif key is False:
+            falsies.append(speaker)
+
+    return truthies, falsies
+
+
+def sub_main(speakers, key_function):
+    truthies, falsies = separate(speakers, key_function)
+    truthy_northerners, truthy_southerners = separate_by_region(truthies)
+    falsy_northerners, falsy_southerners = separate_by_region(falsies)
+
+    return {
+        'TRUTHY': {
+            'NORTH': aggregate(truthy_northerners),
+            'SOUTH': aggregate(truthy_southerners),
+        },
+        'FALSY': {
+            'NORTH': aggregate(falsy_northerners),
+            'SOUTH': aggregate(falsy_southerners),
+        },
+    }
+
+
+def redditor_main(speakers, key):
+    return sub_main(
+        speakers,
+        lambda speaker: (
+            None
+            if speaker['redditor'] is None
+            else speaker['redditor'][key]
+        ),
+    )
+
+
 def main():
     args = parse_args()
 
-    aggregates = defaultdict(list)
-    aggregates['us_states'] = defaultdict(partial(defaultdict, list))
-
-    with open(args.metrics) as file:
+    with open(args.speakers) as file:
         speakers = list(file)
 
-    for speaker in tqdm(speakers):
-        sub_aggregates = [aggregates]
+    for speaker in speakers:
+        if speaker['redditor'] is None:
+            continue
+        elif speaker['redditor']['icon_img'] is None:
+            speaker['redditor']['has_default_icon'] = None
+        else:
+            assert isinstance(speaker['redditor']['icon_img'], str)
 
-        for us_state, status in speaker['us_states'].items():
-            if isinstance(status, bool) and status:
-                sub_aggregates.append(aggregates['us_states'][us_state])
+            speaker['redditor']['has_default_icon'] = (
+                'default'
+                in speaker['redditor']['icon_img']
+            )
 
-        rates = speaker['metrics']['rates']
-        aggression = rates['aggression']
-        response = rates['response']
-        retaliation = rates['retaliation']
+    aggregates = {}
 
-        for sub_aggregate in sub_aggregates:
-            sub_aggregate['aggression'].append(aggression)
-            sub_aggregate['response'].append(response)
-            sub_aggregate['retaliation'].append(retaliation)
+    for key in (
+            'has_verified_email',
+            'has_default_icon',
+            'is_mod',
+            'is_gold',
+    ):
+        aggregates[key] = redditor_main(speakers, key)
 
-    sub_aggregates = [aggregates, *aggregates['us_states'].values()]
+    aggregates[''] = sub_main(speakers, lambda speaker: True)
+    aggregates['has_twitter'] = sub_main(
+        speakers,
+        lambda speaker: speaker['tweeter'] is not None,
+    )
 
-    for sub_aggregate in sub_aggregates:
-        sub_aggregate['aggression'] = safemean(sub_aggregate['aggression'])
-        sub_aggregate['response'] = safemean(sub_aggregate['response'])
-        sub_aggregate['retaliation'] = safemean(sub_aggregate['retaliation'])
-
-    with open(args.aggregates, 'w') as file:
-        file.write(aggregates)
+    print(pformat(aggregates).replace('\'', '"').replace(': nan}', ': null}'))
 
 
 if __name__ == '__main__':

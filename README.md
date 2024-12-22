@@ -142,23 +142,35 @@ washington data/speakers-washington.jsonl
 west_virginia data/speakers-west-virginia.jsonl
 wisconsin data/speakers-wisconsin.jsonl
 wyoming data/speakers-wyoming.jsonl
-appalachia data/speakers-appalachia.jsonl' | python us-states.py data/speakers-change-my-view.jsonl data/us-states-change-my-view.jsonl data/us-states-change-my-view-statistics.jsonl
-```
-
-Get Twitter location data.
-
-```console
-python twitter.py data/us-states-change-my-view.jsonl data/speakers-twitter.csv data/twitter-change-my-view.jsonl
+appalachia data/speakers-appalachia.jsonl' | python speakerships.py data/speakers-change-my-view.jsonl data/speakerships-change-my-view.jsonl data/speakerships-change-my-view-counts.json
 ```
 
 Fetch metrics: aggression, response, and retaliation rates.
 
 ```console
-python metrics.py data/classifications-change-my-view.jsonl data/twitter-change-my-view.jsonl data/metrics-change-my-view.jsonl
+python metrics.py data/classifications-change-my-view.jsonl data/speakerships-change-my-view.jsonl data/metrics-change-my-view.jsonl
+```
+
+Fetch redditor information.
+
+```console
+python redditors.py data/metrics-change-my-view.jsonl data/redditors-change-my-view.jsonl
+```
+
+Fetch Twitter information.
+
+```console
+python tweeters.py data/redditors-change-my-view.jsonl data/tweeters-change-my-view.jsonl
+```
+
+Assign user regions.
+
+```console
+python regions.py data/tweeters-change-my-view.jsonl data/regions-change-my-view.jsonl
 ```
 
 Aggregate metrics.
 
 ```console
-python aggregate.py data/metrics-change-my-view.jsonl data/aggregates-change-my-view.jsonl
+python aggregate.py data/regions-change-my-view.jsonl > data/aggregates-change-my-view.json
 ```

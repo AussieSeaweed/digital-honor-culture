@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
-from collections import Counter
 from datetime import datetime
+from functools import partial
+from operator import getitem
 
 from jsonlines import open
 from tqdm import tqdm
@@ -60,7 +61,7 @@ US_STATES = {
 
 # Experiment 1
 
-SOUTH = {  # Region 3 (South)
+SOUTHERN_STATES = {  # Region 3 (South)
     # Division 5 (South Atlantic) without DC (as per Nisbett & Cohen)
     'delaware', 'florida', 'georgia', 'maryland', 'north_carolina',
     'south_carolina', 'virginia', 'west_virginia',
@@ -71,7 +72,7 @@ SOUTH = {  # Region 3 (South)
     # Division 7 (West South Central)
     'arkansas', 'louisiana', 'oklahoma', 'texas',
 }
-NORTH = {
+NORTHERN_STATES = {
     'california',
     'nevada',
     'wyoming',
@@ -107,26 +108,26 @@ NORTH = {
 }
 
 # # Experiment 2
-# 
-# SOUTH = {  # Region 3 (South)
+#
+# SOUTHERN_STATES = {  # Region 3 (South)
 #     # Division 5 (South Atlantic) without DC, MD, and DE (as per Nisbett &
 #     # Cohen)
 #     'florida', 'georgia', 'north_carolina',
 #     'south_carolina', 'virginia', 'west_virginia',
-# 
+#
 #     # Division 6 (East South Central)
 #     'kentucky', 'mississippi', 'tennessee', 'alabama',
-# 
+#
 #     # Division 7 (West South Central)
 #     'arkansas', 'louisiana', 'oklahoma', 'texas',
-# 
+#
 #     # Southernness-index of 25 or more (as per Nisbett & Cohen)
 #     'arizona', 'new_mexico',
-# 
+#
 #     # Extras (as per Nisbett & Cohen)
 #     'missouri', 'nevada',
 # }
-# NORTH = {
+# NORTHERN_STATES = {
 #     'california',
 #     'colorado',
 #     'connecticut',
@@ -160,26 +161,26 @@ NORTH = {
 # }
 
 # # Experiment 3
-# 
-# SOUTH = {  # Region 3 (South)
+#
+# SOUTHERN_STATES = {  # Region 3 (South)
 #     # Division 5 (South Atlantic) without DC, MD, and DE (as per Nisbett &
 #     # Cohen)
 #     'florida', 'georgia', 'north_carolina',
 #     'south_carolina', 'virginia', 'west_virginia',
-# 
+#
 #     # Division 6 (East South Central)
 #     'kentucky', 'mississippi', 'tennessee', 'alabama',
-# 
+#
 #     # Division 7 (West South Central)
 #     'arkansas', 'louisiana', 'oklahoma', 'texas',
-# 
+#
 #     # Southernness-index of 25 or more (as per Nisbett & Cohen)
 #     'arizona', 'new_mexico',
-# 
+#
 #     # Extras (as per Nisbett & Cohen)
 #     'missouri', 'nevada', 'kansas', 'colorado', 'maryland',
 # }
-# NORTH = {
+# NORTHERN_STATES = {
 #     'california',
 #     'connecticut',
 #     'delaware',
@@ -209,116 +210,57 @@ NORTH = {
 #     'wyoming',
 # }
 
-assert not SOUTH & NORTH and SOUTH | NORTH <= US_STATES
+assert (
+    not SOUTHERN_STATES & NORTHERN_STATES
+    and SOUTHERN_STATES | NORTHERN_STATES <= US_STATES
+)
 
 
 def parse_args():
     parser = ArgumentParser(
-        prog='us-states',
-        description='Encode US state memberships',
+        prog='regions',
+        description='Assign a US region for each user.',
         epilog=f'Copyright (c) {datetime.now().year} - Juho Kim',
     )
 
-    parser.add_argument('input', help='input speakers', type=str)
-    parser.add_argument('output', help='Output speakers', type=str)
-    parser.add_argument('statistics', help='Statistics', type=str)
+    parser.add_argument('speakers', help='File of speakers', type=str)
+    parser.add_argument(
+        'regions',
+        help='File of speakers (with regions)',
+        type=str,
+    )
 
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    status = True
-    statistics = Counter()
 
-    with open(args.input) as file:
+    with open(args.speakers) as file:
         speakers = list(file)
 
-    for i, speaker in enumerate(speakers):
-        speakers[i] = {'id': speaker, 'us_states': {'total': 0}}
+    for speaker in tqdm(speakers):
+        us_state_count = sum(
+            map(partial(getitem, speaker['speakerships']), US_STATES),
+        )
+        south_count = sum(
+            map(partial(getitem, speaker['speakerships']), SOUTHERN_STATES),
+        )
+        north_count = sum(
+            map(partial(getitem, speaker['speakerships']), NORTHERN_STATES),
+        )
 
-    while status:
-        try:
-            line = input()
-        except EOFError:
-            status = False
+        if us_state_count == 1 and south_count == 1 and not north_count:
+            region = 'SOUTH'
+        elif us_state_count == 1 and not south_count and north_count == 1:
+            region = 'NORTH'
         else:
-            us_state, us_state_input = line.split()
+            region = None
 
-            with open(us_state_input) as file:
-                us_state_speakers = set(file)
+        speaker['region'] = region
 
-            for speaker in tqdm(speakers, desc=us_state):
-                if speaker['id'] in us_state_speakers:
-                    speaker['us_states'][us_state] = True
-                    speaker['us_states']['total'] += 1
-                    statistics[us_state] += 1
-                else:
-                    speaker['us_states'][us_state] = False
-
-    for speaker in speakers:
-        us_states = set()
-
-        for us_state in US_STATES:
-            speaker['us_states'][f'{us_state}_only'] = False
-
-            if speaker['us_states'][us_state]:
-                us_states.add(us_state)
-
-        if len(us_states) == 1:
-            us_state = us_states.pop()
-            speaker['us_states'][f'{us_state}_only'] = True
-            statistics[f'{us_state}_only'] += 1
-
-        del us_states
-
-        south = 0
-        north = 0
-
-        for us_state in US_STATES:
-            if speaker['us_states'][us_state]:
-                if us_state in SOUTH:
-                    south += 1
-                elif us_state in NORTH:
-                    north += 1
-
-        south_single = south == 1 and not north
-        north_single = not south and north == 1
-        souther = south > north
-        norther = south < north
-        equal = south == north
-        south = south > 0
-        north = north > 0
-        both = south and north
-        south_only = south and not north
-        north_only = not south and north
-        speaker['us_states']['south_single'] = south_single
-        speaker['us_states']['north_single'] = north_single
-        speaker['us_states']['souther'] = souther
-        speaker['us_states']['norther'] = norther
-        speaker['us_states']['equal'] = equal
-        speaker['us_states']['south'] = south
-        speaker['us_states']['north'] = north
-        speaker['us_states']['both'] = both
-        speaker['us_states']['south_only'] = south_only
-        speaker['us_states']['north_only'] = north_only
-        statistics['south_single'] += south_single
-        statistics['north_single'] += north_single
-        statistics['souther'] += souther
-        statistics['norther'] += norther
-        statistics['equal'] += equal
-        statistics['south'] += south
-        statistics['north'] += north
-        statistics['both'] += both
-        statistics['south_only'] += south_only
-        statistics['north_only'] += north_only
-        statistics[speaker['us_states']['total']] += 1
-
-    with open(args.output, 'w') as file:
+    with open(args.regions, 'w') as file:
         file.write_all(speakers)
-
-    with open(args.statistics, 'w') as file:
-        file.write(statistics)
 
 
 if __name__ == '__main__':
