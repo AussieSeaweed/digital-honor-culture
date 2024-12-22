@@ -8,6 +8,7 @@ from statistics import fmean
 from jsonlines import open
 
 RATE_KEYS = 'aggression', 'response', 'retaliation'
+REGION_KEY = 'region'
 
 
 def parse_args():
@@ -46,7 +47,7 @@ def separate_by_region(speakers):
     southerners = []
 
     for speaker in speakers:
-        match speaker['region']:
+        match speaker[REGION_KEY]:
             case 'NORTH':
                 northerners.append(speaker)
             case 'SOUTH':
@@ -57,7 +58,7 @@ def separate_by_region(speakers):
     return northerners, southerners
 
 
-def separate(speakers, key_function):
+def separate_by_bool(speakers, key_function):
     truthies = []
     falsies = []
 
@@ -72,8 +73,8 @@ def separate(speakers, key_function):
     return truthies, falsies
 
 
-def sub_main(speakers, key_function):
-    truthies, falsies = separate(speakers, key_function)
+def bool_of(speakers, key_function):
+    truthies, falsies = separate_by_bool(speakers, key_function)
     truthy_northerners, truthy_southerners = separate_by_region(truthies)
     falsy_northerners, falsy_southerners = separate_by_region(falsies)
 
@@ -89,8 +90,8 @@ def sub_main(speakers, key_function):
     }
 
 
-def redditor_main(speakers, key):
-    return sub_main(
+def bool_redditor_of(speakers, key):
+    return bool_of(
         speakers,
         lambda speaker: (
             None
@@ -127,10 +128,14 @@ def main():
             'is_mod',
             'is_gold',
     ):
-        aggregates[key] = redditor_main(speakers, key)
+        aggregates[key] = bool_redditor_of(speakers, key)
 
-    aggregates[''] = sub_main(speakers, lambda speaker: True)
-    aggregates['has_twitter'] = sub_main(
+    northerners, southerners = separate_by_region(speakers)
+    aggregates[''] = {
+        'NORTH': aggregate(northerners),
+        'SOUTH': aggregate(southerners),
+    }
+    aggregates['has_twitter'] = bool_of(
         speakers,
         lambda speaker: speaker['tweeter'] is not None,
     )

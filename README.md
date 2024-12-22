@@ -169,8 +169,22 @@ Assign user regions.
 python regions.py data/tweeters-change-my-view.jsonl data/regions-change-my-view.jsonl
 ```
 
+Send over the training set (for US region classification from Twitter location) at ``data/fine-tune-tweeters-location.jsonl`` to OpenAI for fine-tuning.
+
+Classify the US regions of Twitter locations.
+
+```console
+python regions2.py data/regions-change-my-view.jsonl data/regions2-change-my-view.jsonl [OpenAI-model] [max-workers]
+```
+
+Check for US region agreement.
+
+```console
+python kappa.py data/regions2-change-my-view.jsonl > data/kappa.json
+```
+
 Aggregate metrics.
 
 ```console
-python aggregate.py data/regions-change-my-view.jsonl > data/aggregates-change-my-view.json
+python aggregate.py data/regions2-change-my-view.jsonl > data/aggregates-change-my-view.json
 ```
