@@ -8,7 +8,7 @@ from statistics import fmean
 from jsonlines import open
 
 RATE_KEYS = 'aggression', 'response', 'retaliation'
-REGION_KEY = 'region'
+REGION_KEY = 'region2'
 
 
 def parse_args():
