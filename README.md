@@ -188,3 +188,9 @@ Aggregate metrics.
 ```console
 python aggregate.py data/regions2-change-my-view.jsonl > data/aggregates-change-my-view.json
 ```
+
+Convert ``.jsonl`` to ``.csv``.
+
+```console
+python jsonl2csv.py < data/regions2-change-my-view.jsonl > data/regions2-change-my-view.csv
+```
